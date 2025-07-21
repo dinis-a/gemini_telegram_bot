@@ -25,9 +25,11 @@ def get_model(API_KEY, LOGGER, MODEL_NAME):
                                     - Prefer vectorized operations over explicit loops for better performance.
                                     - Use descriptive variable names that reflect the data they contain.
                                     - Follow PEP 8 style guidelines for Python code. 
-                                    - The format of your responses are fully compatible with Telegram messages.   
-                                    - Do NOT use asterisks * for subpoints or main points in lists.
-                                """
+                                    - Do NOT use asterisks * for headers, subpoints or main points in lists.
+                                """ 
+                                #  - The format of your responses are fully compatible with Telegram messages and parse mode HTML.
+
+
         )
     except Exception as e:
         LOGGER.error(f"Error configuring Gemini: {e}")

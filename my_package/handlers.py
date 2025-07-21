@@ -1,14 +1,12 @@
 import re
 import os
-
+from chatgpt_md_converter import telegram_format
 import tempfile
 from aiogram import Bot, Dispatcher, types
-from aiogram.utils.markdown import hbold#, hcode
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 from aiogram.client.default import DefaultBotProperties
 from collections import defaultdict
-
 from my_package import Logger, get_model
 
 from dotenv import load_dotenv
@@ -16,6 +14,7 @@ load_dotenv(os.path.join(os.getcwd(), '.env'))
 
 log = Logger(filename=f"logs/app.log", level="info")
 
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(',') if i != '']
 GEMINI_API_KEY, AYGUL_API_KEY = os.getenv("GEMINI_API_KEY"), os.getenv("AYGUL_API_KEY")
@@ -25,7 +24,7 @@ MODEL_NAME = "gemini-2.5-flash"
 
 model = get_model(API_KEY, log, MODEL_NAME)
 
-bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
+bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
 # Global session storage
 user_sessions = {}
@@ -59,7 +58,7 @@ async def read_file_content(file_path: str) -> str:
 async def send_welcome(message: Message):
     user_id = message.from_user.id
     if user_id in ALLOWED_USER_IDS:
-        await message.reply(f"Hi, {hbold(message.from_user.full_name)}!\nI'm a bot powered by Gemini. How can I help you today?")
+        await message.reply(f"Hi, {message.from_user.full_name}!\nI'm a bot powered by Gemini. How can I help you today?")
     else:
         await message.reply("Sorry, you are not authorized to use this bot.")
         log.warning(f"Unauthorized access attempt by user ID: {user_id}")
@@ -93,15 +92,54 @@ async def change_model(message: Message):
 
     await message.reply(f"✅ Model changed to {MODEL_NAME}")
 
-async def format_response(response_text: str) -> str:
-    """Format the response to separate code blocks and fix nested bullet indentation."""
-    formatted_lines = []
+def split_by_newline_with_limit(s, max_len=4000):
+    lines = s.split('\n')
+    parts = []
+    current_part = ""
 
-    for line in response_text.split('\n'):
-        formatted_lines.append(line)
-        # You can add more formatting logic here if needed
+    for line in lines:
+        # Add back the newline when joining except last line
+        line_with_newline = line + '\n'
+        
+        if len(line_with_newline) > max_len:
+            # If single line is still too long, split arbitrarily
+            for i in range(0, len(line_with_newline), max_len):
+                parts.append(line_with_newline[i:i+max_len])
+            continue
+        
+        if len(current_part) + len(line_with_newline) <= max_len:
+            current_part += line_with_newline
+        else:
+            if current_part:
+                parts.append(current_part)
+            current_part = line_with_newline
 
-    return '\n'.join(formatted_lines)
+    if current_part:
+        parts.append(current_part)
+    return parts
+
+
+def concat_chunks(str_list, max_len=4000):
+    chunks = []
+    current_chunk = ""
+
+    for s in str_list:
+        # If longer than max_len, split by newline respecting max_len
+        if len(s) > max_len:
+            parts = split_by_newline_with_limit(s, max_len)
+        else:
+            parts = [s]
+
+        for part in parts:
+            if len(current_chunk) + len(part) <= max_len:
+                current_chunk += part
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                current_chunk = part
+
+    return chunks
+
 
 def split_text_preserving_codeblocks(text, max_len=4000):
     """Improved version that better handles code block boundaries"""
@@ -109,49 +147,10 @@ def split_text_preserving_codeblocks(text, max_len=4000):
         return [text]
 
     # Split by code blocks first
-    parts = re.split(r'(```[\s\S]*?```)', text)
-    chunks = []
-    current_chunk = ""
-    
-    for part in parts:
-        # If adding this part would exceed max_len, finalize current chunk
-        if len(current_chunk) + len(part) > max_len:
-            if current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = ""
-            
-            # If part itself is too big (e.g., huge code block), split it
-            if len(part) > max_len:
-                if part.startswith('```') and part.endswith('```'):
-                    # This is a code block - split carefully
-                    language = part.split('\n')[0][3:]  # Get language if specified
-                    code_content = part[len('```' + language):-3]
-                    
-                    # Split code content into lines
-                    code_lines = code_content.split('\n')
-                    temp_code = f"```{language}\n"
-                    
-                    for line in code_lines:
-                        if len(temp_code) + len(line) + 1 > max_len - 3:  # -3 for ```
-                            chunks.append(temp_code + "```")
-                            temp_code = f"```{language}\n{line}\n"
-                        else:
-                            temp_code += line + "\n"
-                    
-                    if temp_code:
-                        chunks.append(temp_code + "```")
-                else:
-                    # Regular text that's too long - split arbitrarily
-                    for i in range(0, len(part), max_len):
-                        chunks.append(part[i:i+max_len])
-            else:
-                current_chunk = part
-        else:
-            current_chunk += part
-    
-    if current_chunk:
-        chunks.append(current_chunk)
-    
+    chunks = re.split(r'(```python[\s\S]*?```\n)', text.strip())   
+    chunks = [i for i in chunks if i != '']
+    chunks = concat_chunks(chunks)
+
     return chunks
 
 @dp.message(lambda message: message.document and message.document.file_name.endswith(('.py', '.ipynb', 'txt')))
@@ -195,12 +194,8 @@ async def handle_code_file(message: types.Message, model=model):
         response = chat_session.send_message(prompt)
         user_message_counts[user_id] += 1
 
-        formatted_response = await format_response(response.text)
-        
-        # Split and send in chunks preserving Markdown code blocks
-        chunks = split_text_preserving_codeblocks(formatted_response)
-        for chunk in chunks:
-            await message.answer(chunk)
+        for chunk in split_text_preserving_codeblocks(response.text):
+            await message.answer(telegram_format(chunk))
 
     except Exception as e:
         log.error(f"Error processing file: {e}")
@@ -240,19 +235,28 @@ async def handle_message(message: types.Message, model=model):
         response = chat_session.send_message(message.text)
         user_message_counts[user_id] += 1
 
-        formatted_response = await format_response(response.text)
-        
-        # Split and send in chunks preserving Markdown code blocks
-        chunks = split_text_preserving_codeblocks(formatted_response)
-        for chunk in chunks:
-            await message.answer(chunk)
+        for chunk in split_text_preserving_codeblocks(response.text):
+            await message.answer(telegram_format(chunk))
 
     except Exception as e:
         log.error(f"Error processing message: {e}")
-        await message.reply("⚠️ An error occurred while processing your request.")
+        await message.reply("⚠️ An error occurred while processing your request")
         if any(sub in str(e) for sub in ['Resource has been exhausted', 'service is temporarily unavailable']):
             API_KEY = AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
             model = get_model(AYGUL_API_KEY, log, MODEL_NAME)
             user_sessions[user_id] = model.start_chat(history=[])
             user_message_counts[user_id] = 0
-            await message.reply("API_KEY changed.")
+            await message.reply("API_KEY changed")
+
+
+async def start_bot(bot: Bot):
+    BotName = await bot.get_my_name()
+    await bot.send_message(ADMIN_ID, 
+                           text=f"Бот {BotName.name} запущен", 
+                           disable_notification=True)
+    
+async def stop_bot(bot: Bot):
+    BotName = await bot.get_my_name()
+    await bot.send_message(ADMIN_ID, 
+                           text=f"Бот {BotName.name} выключен", 
+                           disable_notification=True)
