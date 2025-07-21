@@ -1,7 +1,7 @@
 import google.generativeai as genai
 import os
 
-def get_model(API_KEY, logger):
+def get_model(API_KEY, LOGGER, MODEL_NAME):
     # Configure Gemini model
     try:
         genai.configure(api_key=API_KEY)
@@ -13,7 +13,7 @@ def get_model(API_KEY, logger):
             "response_mime_type": "text/plain",
         }
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
+            model_name=MODEL_NAME,
             generation_config=generation_config,
             system_instruction="""You are an expert in data analysis and machine learning, with a focus on Python.
                                     Key Principles:
@@ -30,6 +30,6 @@ def get_model(API_KEY, logger):
                                 """
         )
     except Exception as e:
-        logger.error(f"Error configuring Gemini: {e}")
+        LOGGER.error(f"Error configuring Gemini: {e}")
         model = None
     return model

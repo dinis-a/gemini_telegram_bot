@@ -7,7 +7,8 @@ async def main(mybot) -> None:
     # Set bot command menu
     await mybot.set_my_commands([
         types.BotCommand(command="start", description="Start the bot"),
-        types.BotCommand(command="newchat", description="Start a new chat session"),
+        types.BotCommand(command="new_chat", description="Start a new chat session"),
+        types.BotCommand(command="change_model", description="Change model"),
     ])
     log.info('starting bot')
     await dp.start_polling(mybot)

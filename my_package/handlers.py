@@ -12,7 +12,7 @@ from collections import defaultdict
 from my_package import Logger, get_model
 
 from dotenv import load_dotenv
-load_dotenv('/home/dinis/Desktop/New Folder/.env')
+load_dotenv(os.path.join(os.getcwd(), '.env'))
 
 log = Logger(filename=f"logs/app.log", level="info")
 
@@ -21,7 +21,9 @@ ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(',') if 
 GEMINI_API_KEY, AYGUL_API_KEY = os.getenv("GEMINI_API_KEY"), os.getenv("AYGUL_API_KEY")
 
 API_KEY = GEMINI_API_KEY
-model = get_model(API_KEY, log)
+MODEL_NAME = "gemini-2.5-flash"
+
+model = get_model(API_KEY, log, MODEL_NAME)
 
 bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
 
@@ -62,7 +64,7 @@ async def send_welcome(message: Message):
         await message.reply("Sorry, you are not authorized to use this bot.")
         log.warning(f"Unauthorized access attempt by user ID: {user_id}")
 
-@dp.message(Command("newchat"))
+@dp.message(Command("new_chat"))
 async def new_chat(message: Message):
     user_id = message.from_user.id
 
@@ -75,10 +77,25 @@ async def new_chat(message: Message):
 
     await message.reply("✅ New chat session started. Let's begin!")
 
+@dp.message(Command("change_model"))
+async def change_model(message: Message):
+    global MODEL_NAME
+    user_id = message.from_user.id
+
+    if user_id not in ALLOWED_USER_IDS:
+        await message.reply("Sorry, you are not authorized to use this bot.")
+        return
+    MODEL_NAME = "gemini-2.5-pro" if MODEL_NAME == "gemini-2.5-flash" else "gemini-2.5-flash"
+    model = get_model(API_KEY, log, MODEL_NAME=MODEL_NAME)
+
+    user_sessions[user_id] = model.start_chat()
+    user_message_counts[user_id] = 0
+
+    await message.reply(f"✅ Model changed to {MODEL_NAME}")
+
 async def format_response(response_text: str) -> str:
     """Format the response to separate code blocks and fix nested bullet indentation."""
     formatted_lines = []
-    inside_code_block = False
 
     for line in response_text.split('\n'):
         formatted_lines.append(line)
@@ -191,6 +208,7 @@ async def handle_code_file(message: types.Message, model=model):
 
 @dp.message()
 async def handle_message(message: types.Message, model=model):
+    global API_KEY, MODEL_NAME
     user_id = message.from_user.id
 
     if user_id not in ALLOWED_USER_IDS:
@@ -234,7 +252,7 @@ async def handle_message(message: types.Message, model=model):
         await message.reply("⚠️ An error occurred while processing your request.")
         if any(sub in str(e) for sub in ['Resource has been exhausted', 'service is temporarily unavailable']):
             API_KEY = AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
-            model = get_model(AYGUL_API_KEY)
+            model = get_model(AYGUL_API_KEY, log, MODEL_NAME)
             user_sessions[user_id] = model.start_chat(history=[])
             user_message_counts[user_id] = 0
             await message.reply("API_KEY changed.")
