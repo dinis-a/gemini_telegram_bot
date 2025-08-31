@@ -14,6 +14,31 @@ from telegramify_markdown.customize import get_runtime_config
 from functools import wraps
 import tiktoken  
 
+# Customize symbols (optional)
+markdown_symbol = get_runtime_config().markdown_symbol
+markdown_symbol.head_level_1 = "📌"  # Customize the first level title symbol
+markdown_symbol.link = "🔗"  # Customize the link symbol
+
+load_dotenv(os.path.join(os.getcwd(), '.env'))
+
+log = Logger(filename=f"logs/app.log", level="info")
+
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(',') if i != '']
+GEMINI_API_KEY, AYGUL_API_KEY = os.getenv("GEMINI_API_KEY"), os.getenv("AYGUL_API_KEY")
+
+API_KEY = GEMINI_API_KEY
+MODEL_NAME = "gemini-2.5-flash"
+
+model = get_model(API_KEY, log, MODEL_NAME)
+
+bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+
+# Global session storage
+user_sessions = {}
+
+dp = Dispatcher()
 
 def trim_history_by_tokens(history, max_history_tokens=700_000, encoding_name="gpt2", prompt=None):
     """
@@ -43,33 +68,6 @@ def trim_history_by_tokens(history, max_history_tokens=700_000, encoding_name="g
         total_tokens += tokens
         
     return trimmed_history
-
-# Customize symbols (optional)
-markdown_symbol = get_runtime_config().markdown_symbol
-markdown_symbol.head_level_1 = "📌"  # Customize the first level title symbol
-markdown_symbol.link = "🔗"  # Customize the link symbol
-
-load_dotenv(os.path.join(os.getcwd(), '.env'))
-
-log = Logger(filename=f"logs/app.log", level="info")
-
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(',') if i != '']
-GEMINI_API_KEY, AYGUL_API_KEY = os.getenv("GEMINI_API_KEY"), os.getenv("AYGUL_API_KEY")
-
-API_KEY = GEMINI_API_KEY
-MODEL_NAME = "gemini-2.5-flash"
-
-model = get_model(API_KEY, log, MODEL_NAME)
-
-bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
-
-# Global session storage
-user_sessions = {}
-
-dp = Dispatcher()
-
 
 def authorized_only(handler):
     @wraps(handler)
@@ -113,6 +111,13 @@ async def send_welcome(message: Message):
 @authorized_only
 async def new_chat(message: Message):
     user_id = message.from_user.id
+    # Clear old session if exists
+    if user_id in user_sessions:
+        old_session = user_sessions[user_id]
+        if hasattr(old_session, "history"):
+            old_session.history.clear()
+        del user_sessions[user_id]
+
     user_sessions[user_id] = model.start_chat()
 
     await message.reply("✅ New chat session started. Let's begin!")
