@@ -5,3 +5,4 @@ chatgpt-md-converter==0.3.6
 markdown==3.8.2
 telegram-text-splitter==0.1.1
 telegramify-markdown==0.5.1
+tiktoken==0.11.0

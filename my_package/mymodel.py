@@ -6,10 +6,10 @@ def get_model(API_KEY, LOGGER, MODEL_NAME):
     try:
         genai.configure(api_key=API_KEY)
         generation_config = {
-            "temperature": 0,
+            "temperature": 0.1,
             "top_p": 0.95,
             "top_k": 100,
-            "max_output_tokens": 8192,
+            # "max_output_tokens": 8192,
             "response_mime_type": "text/plain",
         }
         model = genai.GenerativeModel(

@@ -13,8 +13,34 @@ from telegram_text_splitter import split_markdown_into_chunks
 import telegramify_markdown
 from telegramify_markdown.customize import get_runtime_config
 from functools import wraps
+import tiktoken  
 
 
+def trim_history_by_tokens(history, max_tokens=500_000, encoding_name="gpt2"):
+    """
+    Обрезает историю сообщений так, чтобы суммарное количество токенов не превышало max_tokens.
+    history: список сообщений chat_session.history
+    max_tokens: максимальное количество токенов для всей истории
+    """
+    encoding = tiktoken.get_encoding(encoding_name)
+    
+    def count_tokens(text):
+        return len(encoding.encode(text))
+    
+    trimmed_history = []
+    total_tokens = 0
+    
+    # идем с конца (сохраняем последние сообщения)
+    for msg in reversed(history):
+        # msg может быть объектом, берем только текст
+        text = getattr(msg, "text", str(msg))
+        tokens = count_tokens(text)
+        if total_tokens + tokens > max_tokens:
+            break
+        trimmed_history.insert(0, msg)  # вставляем в начало, чтобы сохранить порядок
+        total_tokens += tokens
+        
+    return trimmed_history
 
 # Customize symbols (optional)
 markdown_symbol = get_runtime_config().markdown_symbol
@@ -39,7 +65,6 @@ bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
 # Global session storage
 user_sessions = {}
-user_message_counts = defaultdict(int)
 
 dp = Dispatcher()
 
@@ -87,7 +112,6 @@ async def send_welcome(message: Message):
 async def new_chat(message: Message):
     user_id = message.from_user.id
     user_sessions[user_id] = model.start_chat()
-    user_message_counts[user_id] = 0
 
     await message.reply("✅ New chat session started. Let's begin!")
 
@@ -100,7 +124,6 @@ async def change_model(message: Message):
     model = get_model(API_KEY, log, MODEL_NAME=MODEL_NAME)
 
     user_sessions[user_id] = model.start_chat()
-    user_message_counts[user_id] = 0
 
     await message.reply(f"✅ Model changed to {MODEL_NAME}")
 
@@ -127,7 +150,6 @@ async def handle_code_file(message: types.Message, model=model):
         # Initialize session if not exists
         if user_id not in user_sessions:
             user_sessions[user_id] = model.start_chat(history=[])
-            user_message_counts[user_id] = 0
 
         chat_session = user_sessions[user_id]
 
@@ -141,7 +163,6 @@ async def handle_code_file(message: types.Message, model=model):
 
         # Send message with managed history
         response = chat_session.send_message(prompt)
-        user_message_counts[user_id] += 1
         
         for chunk in split_markdown_into_chunks(telegram_format(response.text)):
             await message.answer(telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2')
@@ -167,19 +188,13 @@ async def handle_message(message: types.Message, model=model):
         # Initialize session if not exists
         if user_id not in user_sessions:
             user_sessions[user_id] = model.start_chat(history=[])
-            user_message_counts[user_id] = 0
 
         chat_session = user_sessions[user_id]
 
-        # Trim history if exceeds 20 messages (10 user + 10 bot responses)
-        if len(chat_session.history) >= 10:
-            # Remove the oldest 2 messages (1 user + 1 bot)
-            chat_session.history = chat_session.history[2:]
-            user_message_counts[user_id] -= 1
 
         # Send message with managed history
+        chat_session.history = trim_history_by_tokens(chat_session.history)
         response = chat_session.send_message(message.text)
-        user_message_counts[user_id] += 1
         for chunk in split_markdown_into_chunks(response.text):
             await message.answer(telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2')
 
@@ -190,7 +205,6 @@ async def handle_message(message: types.Message, model=model):
             API_KEY = AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
             model = get_model(AYGUL_API_KEY, log, MODEL_NAME)
             user_sessions[user_id] = model.start_chat(history=[])
-            user_message_counts[user_id] = 0
             await message.reply("API_KEY changed")
 
 
