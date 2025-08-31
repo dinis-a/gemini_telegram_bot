@@ -1,4 +1,4 @@
-import re
+# import re
 import os
 from chatgpt_md_converter import telegram_format
 import tempfile
