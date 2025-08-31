@@ -8,8 +8,16 @@ from aiogram.types import Message
 from aiogram.client.default import DefaultBotProperties
 from collections import defaultdict
 from my_package import Logger, get_model
-
 from dotenv import load_dotenv
+from telegram_text_splitter import split_markdown_into_chunks
+import telegramify_markdown
+from telegramify_markdown.customize import get_runtime_config
+
+# Customize symbols (optional)
+markdown_symbol = get_runtime_config().markdown_symbol
+markdown_symbol.head_level_1 = "📌"  # Customize the first level title symbol
+markdown_symbol.link = "🔗"  # Customize the link symbol
+
 load_dotenv(os.path.join(os.getcwd(), '.env'))
 
 log = Logger(filename=f"logs/app.log", level="info")
@@ -92,66 +100,7 @@ async def change_model(message: Message):
 
     await message.reply(f"✅ Model changed to {MODEL_NAME}")
 
-def split_by_newline_with_limit(s, max_len=4000):
-    lines = s.split('\n')
-    parts = []
-    current_part = ""
 
-    for line in lines:
-        # Add back the newline when joining except last line
-        line_with_newline = line + '\n'
-        
-        if len(line_with_newline) > max_len:
-            # If single line is still too long, split arbitrarily
-            for i in range(0, len(line_with_newline), max_len):
-                parts.append(line_with_newline[i:i+max_len])
-            continue
-        
-        if len(current_part) + len(line_with_newline) <= max_len:
-            current_part += line_with_newline
-        else:
-            if current_part:
-                parts.append(current_part)
-            current_part = line_with_newline
-
-    if current_part:
-        parts.append(current_part)
-    return parts
-
-
-def concat_chunks(str_list, max_len=4000):
-    chunks = []
-    current_chunk = ""
-
-    for s in str_list:
-        # If longer than max_len, split by newline respecting max_len
-        if len(s) > max_len:
-            parts = split_by_newline_with_limit(s, max_len)
-        else:
-            parts = [s]
-
-        for part in parts:
-            if len(current_chunk) + len(part) <= max_len:
-                current_chunk += part
-            else:
-                if current_chunk:
-                    chunks.append(current_chunk)
-                current_chunk = part
-
-    return chunks
-
-
-def split_text_preserving_codeblocks(text, max_len=4000):
-    """Improved version that better handles code block boundaries"""
-    if len(text) <= max_len:
-        return [text]
-
-    # Split by code blocks first
-    chunks = re.split(r'(```python[\s\S]*?```\n)', text.strip())   
-    chunks = [i for i in chunks if i != '']
-    chunks = concat_chunks(chunks)
-
-    return chunks
 
 @dp.message(lambda message: message.document and message.document.file_name.endswith(('.py', '.ipynb', 'txt')))
 async def handle_code_file(message: types.Message, model=model):
@@ -193,9 +142,10 @@ async def handle_code_file(message: types.Message, model=model):
         # Send message with managed history
         response = chat_session.send_message(prompt)
         user_message_counts[user_id] += 1
-
-        for chunk in split_text_preserving_codeblocks(response.text):
-            await message.answer(telegram_format(chunk))
+        
+        for chunk in split_markdown_into_chunks(telegram_format(response.text)):
+            await message.answer(telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2')
+            
 
     except Exception as e:
         log.error(f"Error processing file: {e}")
@@ -234,9 +184,8 @@ async def handle_message(message: types.Message, model=model):
         # Send message with managed history
         response = chat_session.send_message(message.text)
         user_message_counts[user_id] += 1
-
-        for chunk in split_text_preserving_codeblocks(response.text):
-            await message.answer(telegram_format(chunk))
+        for chunk in split_markdown_into_chunks(response.text):
+            await message.answer(telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2')
 
     except Exception as e:
         log.error(f"Error processing message: {e}")
