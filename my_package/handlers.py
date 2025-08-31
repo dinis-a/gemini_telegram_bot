@@ -1,4 +1,3 @@
-# import re
 import os
 from chatgpt_md_converter import telegram_format
 import tempfile
@@ -16,7 +15,7 @@ from functools import wraps
 import tiktoken  
 
 
-def trim_history_by_tokens(history, max_tokens=500_000, encoding_name="gpt2"):
+def trim_history_by_tokens(history, max_history_tokens=700_000, encoding_name="gpt2", prompt=None):
     """
     Обрезает историю сообщений так, чтобы суммарное количество токенов не превышало max_tokens.
     history: список сообщений chat_session.history
@@ -27,6 +26,9 @@ def trim_history_by_tokens(history, max_tokens=500_000, encoding_name="gpt2"):
     def count_tokens(text):
         return len(encoding.encode(text))
     
+    prompt_tokens = count_tokens(prompt)
+    max_tokens = max_history_tokens - prompt_tokens
+
     trimmed_history = []
     total_tokens = 0
     
@@ -162,6 +164,7 @@ async def handle_code_file(message: types.Message, model=model):
                   """
 
         # Send message with managed history
+        chat_session.history = trim_history_by_tokens(chat_session.history, prompt=prompt)
         response = chat_session.send_message(prompt)
         
         for chunk in split_markdown_into_chunks(telegram_format(response.text)):
@@ -193,7 +196,7 @@ async def handle_message(message: types.Message, model=model):
 
 
         # Send message with managed history
-        chat_session.history = trim_history_by_tokens(chat_session.history)
+        chat_session.history = trim_history_by_tokens(chat_session.history, prompt=message.text)
         response = chat_session.send_message(message.text)
         for chunk in split_markdown_into_chunks(response.text):
             await message.answer(telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2')
