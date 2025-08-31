@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 from telegram_text_splitter import split_markdown_into_chunks
 import telegramify_markdown
 from telegramify_markdown.customize import get_runtime_config
+from functools import wraps
+
+
 
 # Customize symbols (optional)
 markdown_symbol = get_runtime_config().markdown_symbol
@@ -40,6 +43,18 @@ user_message_counts = defaultdict(int)
 
 dp = Dispatcher()
 
+
+def authorized_only(handler):
+    @wraps(handler)
+    async def wrapper(message: Message, *args, **kwargs):
+        user_id = message.from_user.id
+        if user_id not in ALLOWED_USER_IDS:
+            await message.reply("Sorry, you are not authorized to use this bot.")
+            log.warning(f"Unauthorized access attempt by user ID: {user_id}")
+            return
+        return await handler(message, *args, **kwargs)
+    return wrapper
+
 async def download_file(bot: Bot, file_id: str) -> str:
     """Download file from Telegram and return its path"""
     file = await bot.get_file(file_id)
@@ -63,35 +78,24 @@ async def read_file_content(file_path: str) -> str:
             return f.read()
 
 @dp.message(CommandStart())
+@authorized_only
 async def send_welcome(message: Message):
-    user_id = message.from_user.id
-    if user_id in ALLOWED_USER_IDS:
-        await message.reply(f"Hi, {message.from_user.full_name}!\nI'm a bot powered by Gemini. How can I help you today?")
-    else:
-        await message.reply("Sorry, you are not authorized to use this bot.")
-        log.warning(f"Unauthorized access attempt by user ID: {user_id}")
+    await message.reply(f"Hi, {message.from_user.full_name}!\nI'm a bot powered by Gemini. How can I help you today?")
 
 @dp.message(Command("new_chat"))
+@authorized_only
 async def new_chat(message: Message):
     user_id = message.from_user.id
-
-    if user_id not in ALLOWED_USER_IDS:
-        await message.reply("Sorry, you are not authorized to use this bot.")
-        return
-
     user_sessions[user_id] = model.start_chat()
     user_message_counts[user_id] = 0
 
     await message.reply("✅ New chat session started. Let's begin!")
 
 @dp.message(Command("change_model"))
+@authorized_only
 async def change_model(message: Message):
     global MODEL_NAME
     user_id = message.from_user.id
-
-    if user_id not in ALLOWED_USER_IDS:
-        await message.reply("Sorry, you are not authorized to use this bot.")
-        return
     MODEL_NAME = "gemini-2.5-pro" if MODEL_NAME == "gemini-2.5-flash" else "gemini-2.5-flash"
     model = get_model(API_KEY, log, MODEL_NAME=MODEL_NAME)
 
@@ -103,13 +107,9 @@ async def change_model(message: Message):
 
 
 @dp.message(lambda message: message.document and message.document.file_name.endswith(('.py', '.ipynb', 'txt')))
+@authorized_only
 async def handle_code_file(message: types.Message, model=model):
     user_id = message.from_user.id
-
-    if user_id not in ALLOWED_USER_IDS:
-        await message.reply("Sorry, you are not authorized to use this bot.")
-        return
-
     if not model:
         await message.reply("❌ AI model is not configured. Please contact the administrator.")
         return
@@ -152,14 +152,10 @@ async def handle_code_file(message: types.Message, model=model):
         await message.reply("⚠️ An error occurred while processing your file.")
 
 @dp.message()
+@authorized_only
 async def handle_message(message: types.Message, model=model):
     global API_KEY, MODEL_NAME
     user_id = message.from_user.id
-
-    if user_id not in ALLOWED_USER_IDS:
-        await message.reply("Sorry, you are not authorized to use this bot.")
-        log.warning(f"Unauthorized message from user ID: {user_id}")
-        return
 
     if not model:
         await message.reply("❌ AI model is not configured. Please contact the administrator.")
