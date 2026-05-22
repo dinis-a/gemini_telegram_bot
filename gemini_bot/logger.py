@@ -1,17 +1,18 @@
 import logging
 import logging.handlers
 import os
+from typing import ClassVar
 
 
-class Logger(object):
+class Logger:
     """
     A simple logging class that configures a logger with a console handler
     and a timed rotating file handler, ensuring handlers are not duplicated.
     """
 
-    _loggers = {}  # Class-level dictionary to keep track of configured loggers
+    _loggers: ClassVar[dict[str, "Logger"]] = {}
 
-    level_relations = {
+    level_relations: ClassVar[dict[str, int]] = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
         "warning": logging.WARNING,
@@ -21,21 +22,21 @@ class Logger(object):
 
     def __new__(
         cls,
-        filename,
-        level="info",
-        when="midnight",
-        backCount=3,
-        fmt="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s",
-    ):
+        filename: str,
+        level: str = "info",
+        when: str = "midnight",
+        backCount: int = 3,
+        fmt: str = "%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s",
+    ):  # type: ignore[misc]  # returns logging.Logger, not Logger
         logger_name = filename
 
         if logger_name in cls._loggers:
             return cls._loggers[logger_name].logger
-        else:
-            instance = super(Logger, cls).__new__(cls)
-            instance._configure_logger(logger_name, level, when, backCount, fmt)
-            cls._loggers[logger_name] = instance
-            return instance.logger
+
+        instance = super().__new__(cls)
+        instance._configure_logger(logger_name, level, when, backCount, fmt)
+        cls._loggers[logger_name] = instance
+        return instance.logger
 
     def _configure_logger(self, logger_name, level, when, backCount, fmt):
         """Configures the logger with handlers and formatters."""

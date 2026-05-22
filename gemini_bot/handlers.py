@@ -1,6 +1,8 @@
+import logging
 import os
 import tempfile
 from functools import wraps
+from typing import Any, cast
 
 import telegramify_markdown
 import tiktoken
@@ -18,17 +20,29 @@ from .model import get_model
 
 # Customize symbols (optional)
 markdown_symbol = get_runtime_config().markdown_symbol
-markdown_symbol.heading_level_1 = "📌"
-markdown_symbol.link = "🔗"
+markdown_symbol.heading_level_1 = "\U0001f4cc"
+markdown_symbol.link = "\U0001f517"
 
 load_dotenv(os.path.join(os.getcwd(), ".env"))
 
-log = Logger(filename="logs/app.log", level="info")
+log = cast(logging.Logger, Logger(filename="logs/app.log", level="info"))
 
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(",") if i != ""]
-GEMINI_API_KEY, AYGUL_API_KEY = os.getenv("GEMINI_API_KEY"), os.getenv("AYGUL_API_KEY")
+_admin_id = os.getenv("ADMIN_ID")
+assert _admin_id is not None, "ADMIN_ID not set"
+ADMIN_ID = int(_admin_id)
+
+_telegram_token = os.getenv("TELEGRAM_TOKEN")
+assert _telegram_token is not None, "TELEGRAM_TOKEN not set"
+TELEGRAM_TOKEN = _telegram_token
+
+_allowed_ids = os.getenv("ALLOWED_USER_IDS")
+assert _allowed_ids is not None, "ALLOWED_USER_IDS not set"
+ALLOWED_USER_IDS = [int(i) for i in _allowed_ids.split(",") if i != ""]
+
+_gemini_key = os.getenv("GEMINI_API_KEY")
+assert _gemini_key is not None, "GEMINI_API_KEY not set"
+GEMINI_API_KEY = _gemini_key
+AYGUL_API_KEY = os.getenv("AYGUL_API_KEY")
 
 API_KEY = GEMINI_API_KEY
 MODEL_NAME = "gemini-2.5-flash"
@@ -38,7 +52,7 @@ model = get_model(API_KEY, log, MODEL_NAME)
 bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
 # Global session storage
-user_sessions = {}
+user_sessions: dict[int, Any] = {}
 
 dp = Dispatcher()
 
@@ -70,6 +84,7 @@ def trim_history_by_tokens(history, max_history_tokens=700_000, encoding_name="g
 def authorized_only(handler):
     @wraps(handler)
     async def wrapper(message: Message, *args, **kwargs):
+        assert message.from_user is not None
         user_id = message.from_user.id
         if user_id not in ALLOWED_USER_IDS:
             await message.reply("Sorry, you are not authorized to use this bot.")
@@ -84,8 +99,9 @@ async def download_file(bot: Bot, file_id: str) -> str:
     """Download file from Telegram and return its path."""
     file = await bot.get_file(file_id)
     file_path = file.file_path
+    assert file_path is not None
 
-    suffix = os.path.splitext(file_path)[1] if os.path.splitext(file_path)[1] else ".txt"
+    suffix = os.path.splitext(file_path)[1] or ".txt"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
         temp_path = temp_file.name
 
@@ -106,6 +122,7 @@ async def read_file_content(file_path: str) -> str:
 @dp.message(CommandStart())
 @authorized_only
 async def send_welcome(message: Message):
+    assert message.from_user is not None
     await message.reply(
         f"Hi, {message.from_user.full_name}!\n"
         f"I'm a bot powered by Gemini. How can I help you today?"
@@ -115,6 +132,7 @@ async def send_welcome(message: Message):
 @dp.message(Command("new_chat"))
 @authorized_only
 async def new_chat(message: Message):
+    assert message.from_user is not None
     user_id = message.from_user.id
     if user_id in user_sessions:
         old_session = user_sessions[user_id]
@@ -130,6 +148,7 @@ async def new_chat(message: Message):
 @authorized_only
 async def change_model(message: Message):
     global MODEL_NAME, model
+    assert message.from_user is not None
     user_id = message.from_user.id
     MODEL_NAME = "gemini-2.5-pro" if MODEL_NAME == "gemini-2.5-flash" else "gemini-2.5-flash"
     model = get_model(API_KEY, log, MODEL_NAME)
@@ -144,6 +163,7 @@ async def change_model(message: Message):
 )
 @authorized_only
 async def handle_code_file(message: types.Message, model=model):
+    assert message.from_user is not None
     user_id = message.from_user.id
     if not model:
         await message.reply("❌ AI model is not configured. Please contact the administrator.")
@@ -152,6 +172,7 @@ async def handle_code_file(message: types.Message, model=model):
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
 
     try:
+        assert message.document is not None
         file_path = await download_file(bot, message.document.file_id)
         file_content = await read_file_content(file_path)
         os.unlink(file_path)
@@ -178,6 +199,7 @@ async def handle_code_file(message: types.Message, model=model):
 @authorized_only
 async def handle_message(message: types.Message, model=model):
     global API_KEY
+    assert message.from_user is not None
     user_id = message.from_user.id
 
     if not model:
@@ -204,7 +226,9 @@ async def handle_message(message: types.Message, model=model):
             sub in str(e)
             for sub in ["Resource has been exhausted", "service is temporarily unavailable"]
         ):
-            API_KEY = AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
+            API_KEY = (
+                AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
+            ) or GEMINI_API_KEY
             model = get_model(AYGUL_API_KEY, log, MODEL_NAME)
             user_sessions[user_id] = model.start_chat(history=[])
             await message.reply("API_KEY changed")
