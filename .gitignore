@@ -46,3 +46,4 @@ reuse_test.log
 
 # Docker
 docker-compose.override.yml
+Makefile

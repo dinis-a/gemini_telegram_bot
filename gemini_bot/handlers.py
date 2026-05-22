@@ -43,10 +43,9 @@ _gemini_key = os.getenv("GEMINI_API_KEY")
 assert _gemini_key is not None, "GEMINI_API_KEY not set"
 GEMINI_API_KEY = _gemini_key
 
-API_KEY = GEMINI_API_KEY
 MODEL_NAME = "gemini-2.5-flash"
 
-model = get_model(API_KEY, log, MODEL_NAME)
+model = get_model(GEMINI_API_KEY, log, MODEL_NAME)
 
 bot = Bot(TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
@@ -150,7 +149,7 @@ async def change_model(message: Message):
     assert message.from_user is not None
     user_id = message.from_user.id
     MODEL_NAME = "gemini-2.5-pro" if MODEL_NAME == "gemini-2.5-flash" else "gemini-2.5-flash"
-    model = get_model(API_KEY, log, MODEL_NAME)
+    model = get_model(GEMINI_API_KEY, log, MODEL_NAME)
 
     user_sessions[user_id] = model.start_chat()
     await message.reply(f"✅ Model changed to {MODEL_NAME}")
