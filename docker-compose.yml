@@ -6,7 +6,7 @@ services:
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-    image: dinisak/gemini_bot:latest
+    image: ghcr.io/dinis-a/gemini_telegram_bot:latest
     container_name: gemini_bot
     env_file:
       - .env
