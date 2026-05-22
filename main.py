@@ -1,6 +1,6 @@
 import asyncio
 from aiogram import Bot, types
-from my_package import log, dp, bot, stop_bot, start_bot
+from gemini_bot import log, dp, bot, stop_bot, start_bot
 
 async def main(mybot) -> None:
     

@@ -1,17 +1,34 @@
 FROM python:3.12-slim
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 WORKDIR /app
 
-RUN mkdir -p /app/logs
+# Install Python dependencies (cached layer)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy application source
 COPY . .
 
-# Install Python dependencies
-RUN pip3 install -r requirements.txt
+# Create logs directory writable by any user.
+# At runtime, a bind mount replaces /app/logs, so we set it up
+# both here (for non-bind-mount runs) and in the compose file.
+RUN mkdir -p /app/logs && chmod 777 /app/logs
 
-# Make the scripts executable
-RUN chmod +x ./start_script.sh
+# Run as an unprivileged user (UID can be overridden at build or run time)
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -r -g "$GID" botuser 2>/dev/null || true \
+    && useradd -r -u "$UID" -g botuser botuser 2>/dev/null || true \
+    && chown -R botuser:botuser /app
 
-# Define the command to run the application
-CMD ["./start_script.sh"]
+USER botuser
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pgrep -f "python.*main.py" || exit 1
+
+CMD ["python", "main.py"]

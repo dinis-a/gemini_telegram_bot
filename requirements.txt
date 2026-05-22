@@ -1,8 +1,8 @@
-aiogram==3.21.0
-google-generativeai==0.8.5
+aiogram==3.28.2
+google-generativeai==0.8.6
 python-dotenv==1.1.1
-chatgpt-md-converter==0.3.6
-markdown==3.8.2
+chatgpt-md-converter==0.3.12
+markdown==3.10.2
 telegram-text-splitter==0.1.1
-telegramify-markdown==0.5.1
-tiktoken==0.11.0
+telegramify-markdown==1.1.5
+tiktoken==0.13.0

@@ -1,4 +1,48 @@
+# Environment
 .env
 .venv/
+venv/
+env/
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.Python
+*.so
+
+# Logs
 logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+*.egg-info/
+
+# Test artifacts
+test.log
+reuse_test.log
+
+# Mypy
+.mypy_cache/
+
+# Docker
+docker-compose.override.yml
