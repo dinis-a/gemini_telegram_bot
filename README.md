@@ -82,9 +82,9 @@ python main.py
 ├── docker-compose.yml
 ├── pyproject.toml         # Project metadata and tool configs
 ├── requirements.txt
+├── .dockerignore
 ├── example.env
-├── LICENSE
-└── CHANGELOG.md
+└── LICENSE
 ```
 
 ## Development
