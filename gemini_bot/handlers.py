@@ -2,8 +2,8 @@ import os
 import tempfile
 from functools import wraps
 
-import tiktoken
 import telegramify_markdown
+import tiktoken
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import Command, CommandStart
@@ -13,20 +13,21 @@ from dotenv import load_dotenv
 from telegram_text_splitter import split_markdown_into_chunks
 from telegramify_markdown.config import get_runtime_config
 
-from gemini_bot import Logger, get_model
+from .logger import Logger
+from .model import get_model
 
 # Customize symbols (optional)
 markdown_symbol = get_runtime_config().markdown_symbol
 markdown_symbol.heading_level_1 = "📌"
 markdown_symbol.link = "🔗"
 
-load_dotenv(os.path.join(os.getcwd(), '.env'))
+load_dotenv(os.path.join(os.getcwd(), ".env"))
 
 log = Logger(filename="logs/app.log", level="info")
 
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(',') if i != '']
+ALLOWED_USER_IDS = [int(i) for i in os.getenv("ALLOWED_USER_IDS").split(",") if i != ""]
 GEMINI_API_KEY, AYGUL_API_KEY = os.getenv("GEMINI_API_KEY"), os.getenv("AYGUL_API_KEY")
 
 API_KEY = GEMINI_API_KEY
@@ -75,6 +76,7 @@ def authorized_only(handler):
             log.warning(f"Unauthorized access attempt by user ID: {user_id}")
             return
         return await handler(message, *args, **kwargs)
+
     return wrapper
 
 
@@ -83,7 +85,7 @@ async def download_file(bot: Bot, file_id: str) -> str:
     file = await bot.get_file(file_id)
     file_path = file.file_path
 
-    suffix = os.path.splitext(file_path)[1] if os.path.splitext(file_path)[1] else '.txt'
+    suffix = os.path.splitext(file_path)[1] if os.path.splitext(file_path)[1] else ".txt"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
         temp_path = temp_file.name
 
@@ -94,10 +96,10 @@ async def download_file(bot: Bot, file_id: str) -> str:
 async def read_file_content(file_path: str) -> str:
     """Read file content and return as string."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except UnicodeDecodeError:
-        with open(file_path, 'r', encoding='latin-1') as f:
+        with open(file_path, "r", encoding="latin-1") as f:
             return f.read()
 
 
@@ -136,7 +138,10 @@ async def change_model(message: Message):
     await message.reply(f"✅ Model changed to {MODEL_NAME}")
 
 
-@dp.message(lambda message: message.document and message.document.file_name.endswith(('.py', '.ipynb', 'txt')))
+@dp.message(
+    lambda message: message.document
+    and message.document.file_name.endswith((".py", ".ipynb", "txt"))
+)
 @authorized_only
 async def handle_code_file(message: types.Message, model=model):
     user_id = message.from_user.id
@@ -162,9 +167,7 @@ async def handle_code_file(message: types.Message, model=model):
         response = chat_session.send_message(prompt)
 
         for chunk in split_markdown_into_chunks(telegram_format(response.text)):
-            await message.answer(
-                telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2'
-            )
+            await message.answer(telegramify_markdown.markdownify(chunk), parse_mode="MarkdownV2")
 
     except Exception as e:
         log.error(f"Error processing file: {e}")
@@ -192,14 +195,15 @@ async def handle_message(message: types.Message, model=model):
         chat_session.history = trim_history_by_tokens(chat_session.history, prompt=message.text)
         response = chat_session.send_message(message.text)
         for chunk in split_markdown_into_chunks(response.text):
-            await message.answer(
-                telegramify_markdown.markdownify(chunk), parse_mode='MarkdownV2'
-            )
+            await message.answer(telegramify_markdown.markdownify(chunk), parse_mode="MarkdownV2")
 
     except Exception as e:
         log.error(f"Error processing message: {e}")
         await message.reply("⚠️ An error occurred while processing your request")
-        if any(sub in str(e) for sub in ['Resource has been exhausted', 'service is temporarily unavailable']):
+        if any(
+            sub in str(e)
+            for sub in ["Resource has been exhausted", "service is temporarily unavailable"]
+        ):
             API_KEY = AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
             model = get_model(AYGUL_API_KEY, log, MODEL_NAME)
             user_sessions[user_id] = model.start_chat(history=[])
@@ -208,13 +212,9 @@ async def handle_message(message: types.Message, model=model):
 
 async def start_bot(bot: Bot):
     BotName = await bot.get_my_name()
-    await bot.send_message(
-        ADMIN_ID, text=f"Бот {BotName.name} запущен", disable_notification=True
-    )
+    await bot.send_message(ADMIN_ID, text=f"Бот {BotName.name} запущен", disable_notification=True)
 
 
 async def stop_bot(bot: Bot):
     BotName = await bot.get_my_name()
-    await bot.send_message(
-        ADMIN_ID, text=f"Бот {BotName.name} выключен", disable_notification=True
-    )
+    await bot.send_message(ADMIN_ID, text=f"Бот {BotName.name} выключен", disable_notification=True)

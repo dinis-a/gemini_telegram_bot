@@ -12,15 +12,21 @@ class Logger(object):
     _loggers = {}  # Class-level dictionary to keep track of configured loggers
 
     level_relations = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR,
-        'crit': logging.CRITICAL,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "crit": logging.CRITICAL,
     }
 
-    def __new__(cls, filename, level='info', when='midnight', backCount=3,
-                fmt='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'):
+    def __new__(
+        cls,
+        filename,
+        level="info",
+        when="midnight",
+        backCount=3,
+        fmt="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s",
+    ):
         logger_name = filename
 
         if logger_name in cls._loggers:
@@ -49,7 +55,7 @@ class Logger(object):
                 os.makedirs(log_dir)
 
             file_handler = logging.handlers.TimedRotatingFileHandler(
-                filename=logger_name, when=when, backupCount=backCount, encoding='utf-8'
+                filename=logger_name, when=when, backupCount=backCount, encoding="utf-8"
             )
             file_handler.setFormatter(format_str)
             self.logger.addHandler(file_handler)

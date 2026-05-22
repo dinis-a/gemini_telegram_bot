@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from gemini_bot.handlers import trim_history_by_tokens, authorized_only
+import pytest
+
+from gemini_bot.handlers import authorized_only, trim_history_by_tokens
 
 
 class TestTrimHistoryByTokens:
