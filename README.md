@@ -1,6 +1,6 @@
 # Gemini Telegram Bot
 
-[![CI](https://github.com/dinis-a/new_gemini_bot/actions/workflows/ci.yml/badge.svg)](https://github.com/dinis-a/new_gemini_bot/actions/workflows/ci.yml)
+[![CI](https://github.com/dinis-a/gemini_telegram_bot/actions/workflows/ci.yml/badge.svg)](https://github.com/dinis-a/gemini_telegram_bot/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -23,8 +23,8 @@ A Telegram bot powered by **Google Gemini AI** that provides intelligent convers
 ### 1. Clone & Configure
 
 ```bash
-git clone git@github.com:dinis-a/new_gemini_bot.git
-cd new_gemini_bot
+git clone git@github.com:dinis-a/gemini_telegram_bot.git
+cd gemini_telegram_bot
 cp example.env .env
 # Edit .env with your Telegram bot token and Gemini API key
 ```
