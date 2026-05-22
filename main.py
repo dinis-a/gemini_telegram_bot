@@ -1,6 +1,6 @@
 import asyncio
 
-from aiogram import Bot, types
+from aiogram import types
 
 from gemini_bot import bot, dp, log, start_bot, stop_bot
 

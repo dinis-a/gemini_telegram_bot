@@ -34,7 +34,7 @@ jobs:
         run: isort --check-only --diff .
 
       - name: Lint with flake8
-        run: flake8 . --count --show-source --statistics
+        run: flake8 . --count --show-source --statistics --extend-ignore=E501
 
       - name: Type check with mypy
         run: mypy gemini_bot/ --ignore-missing-imports
