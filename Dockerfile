@@ -14,10 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source
 COPY . .
 
-# Create logs directory writable by any user.
-# At runtime, a bind mount replaces /app/logs, so we set it up
-# both here (for non-bind-mount runs) and in the compose file.
-RUN mkdir -p /app/logs && chmod 777 /app/logs
+RUN mkdir -p /app/logs
 
 # Run as an unprivileged user (UID can be overridden at build or run time)
 ARG UID=1000

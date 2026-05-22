@@ -32,8 +32,13 @@ cp example.env .env
 ### 2. Run with Docker
 
 ```bash
-mkdir -p logs && chmod 777 logs
 docker compose up -d
+```
+
+Logs persist in a named Docker volume. To view them:
+
+```bash
+docker exec gemini_bot cat /app/logs/app.log
 ```
 
 ### 3. Or Run Locally
