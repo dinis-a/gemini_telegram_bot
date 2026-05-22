@@ -16,7 +16,7 @@ A Telegram bot powered by **Google Gemini AI** that provides intelligent convers
 - **Code File Analysis** -- Upload `.py`, `.ipynb`, or `.txt` files for AI code review
 - **Access Control** -- Restrict usage to authorized Telegram user IDs
 - **Smart History** -- Token-aware trimming keeps conversations within Gemini's context window
-- **API Key Rotation** -- Automatic fallback to a secondary API key on rate-limit errors
+
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ python main.py
 | `GEMINI_API_KEY` | Yes | Primary [Gemini API key](https://aistudio.google.com/app/apikey) |
 | `ALLOWED_USER_IDS` | Yes | Comma-separated list of allowed Telegram user IDs |
 | `ADMIN_ID` | Yes | Telegram user ID that receives bot start/stop notifications |
-| `AYGUL_API_KEY` | No | Fallback API key used when primary hits rate limits |
+
 
 ## Project Structure
 

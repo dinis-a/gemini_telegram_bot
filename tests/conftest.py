@@ -7,4 +7,3 @@ def pytest_configure():
     os.environ.setdefault("TELEGRAM_TOKEN", "123456789:ABCdefGHIjklMNOpqrsTUVwxyz")
     os.environ.setdefault("ALLOWED_USER_IDS", "123,456")
     os.environ.setdefault("GEMINI_API_KEY", "test_gemini_key")
-    os.environ.setdefault("AYGUL_API_KEY", "test_backup_key")

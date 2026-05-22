@@ -42,7 +42,6 @@ ALLOWED_USER_IDS = [int(i) for i in _allowed_ids.split(",") if i != ""]
 _gemini_key = os.getenv("GEMINI_API_KEY")
 assert _gemini_key is not None, "GEMINI_API_KEY not set"
 GEMINI_API_KEY = _gemini_key
-AYGUL_API_KEY = os.getenv("AYGUL_API_KEY")
 
 API_KEY = GEMINI_API_KEY
 MODEL_NAME = "gemini-2.5-flash"
@@ -198,7 +197,6 @@ async def handle_code_file(message: types.Message, model=model):
 @dp.message()
 @authorized_only
 async def handle_message(message: types.Message, model=model):
-    global API_KEY
     assert message.from_user is not None
     user_id = message.from_user.id
 
@@ -222,16 +220,6 @@ async def handle_message(message: types.Message, model=model):
     except Exception as e:
         log.error(f"Error processing message: {e}")
         await message.reply("⚠️ An error occurred while processing your request")
-        if any(
-            sub in str(e)
-            for sub in ["Resource has been exhausted", "service is temporarily unavailable"]
-        ):
-            API_KEY = (
-                AYGUL_API_KEY if API_KEY == GEMINI_API_KEY else GEMINI_API_KEY
-            ) or GEMINI_API_KEY
-            model = get_model(AYGUL_API_KEY, log, MODEL_NAME)
-            user_sessions[user_id] = model.start_chat(history=[])
-            await message.reply("API_KEY changed")
 
 
 async def start_bot(bot: Bot):
