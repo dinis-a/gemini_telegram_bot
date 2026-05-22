@@ -11,7 +11,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./logs:/app/logs
+      - app-logs:/app/logs
     restart: unless-stopped
     init: true
     logging:
@@ -24,5 +24,6 @@ services:
         limits:
           memory: 512M
     stop_grace_period: 10s
-    # Ensure host's ./logs directory exists with proper permissions:
-    #   mkdir -p logs && chmod 777 logs
+
+volumes:
+  app-logs:
